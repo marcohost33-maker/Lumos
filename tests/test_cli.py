@@ -92,3 +92,104 @@ def test_help_shows_commands(tmp_path):
     assert r.exit_code == 0
     assert "remind" in r.output
     assert "drive" in r.output
+    assert "backup" in r.output
+    assert "status" in r.output
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_remind_next_empty(tmp_path):
+    r = _run(["--home", str(tmp_path), "remind", "next"])
+    assert r.exit_code == 0
+    assert "No upcoming reminders" in r.output
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_remind_next_returns_soonest(tmp_path):
+    home = str(tmp_path)
+    _run(["--home", home, "remind", "add", "later", "--when", "in 5 hours"])
+    _run(["--home", home, "remind", "add", "sooner", "--when", "in 1 hour"])
+    r = _run(["--home", home, "remind", "next"])
+    assert "sooner" in r.output
+    assert "later" not in r.output
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_remind_today(tmp_path):
+    home = str(tmp_path)
+    _run(["--home", home, "remind", "add", "today-job", "--when", "in 1 hour"])
+    _run(["--home", home, "remind", "add", "later-job", "--when", "in 3 days"])
+    r = _run(["--home", home, "remind", "today"])
+    assert r.exit_code == 0
+    assert "today-job" in r.output
+    assert "later-job" not in r.output
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_remind_today_empty(tmp_path):
+    r = _run(["--home", str(tmp_path), "remind", "today"])
+    assert "Nothing due today" in r.output
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_remind_update_text_and_when(tmp_path):
+    home = str(tmp_path)
+    _run(["--home", home, "remind", "add", "x", "--when", "in 1 hour"])
+    r = _run(
+        ["--home", home, "remind", "update", "1", "--text", "y", "--when", "in 2 hours"]
+    )
+    assert r.exit_code == 0
+    assert "Updated #1" in r.output
+    assert "y" in r.output
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_remind_update_clears_recurrence(tmp_path):
+    home = str(tmp_path)
+    _run(
+        [
+            "--home", home,
+            "remind", "add", "daily-x",
+            "--when", "in 1 hour",
+            "--recurring", "daily",
+        ]
+    )
+    r = _run(["--home", home, "remind", "update", "1", "--recurring", "none"])
+    assert r.exit_code == 0
+    r = _run(["--home", home, "remind", "list", "--json"])
+    import json as _json
+
+    data = _json.loads(r.output)
+    assert data[0]["recurring"] is None
+
+
+def test_remind_update_requires_at_least_one_option(tmp_path):
+    home = str(tmp_path)
+    _run(["--home", home, "remind", "add", "x", "--when", "in 1 hour"])
+    r = _run(["--home", home, "remind", "update", "1"])
+    assert r.exit_code != 0
+    assert "nothing to update" in r.output.lower()
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_status_command(tmp_path):
+    home = str(tmp_path)
+    _run(["--home", home, "remind", "add", "a", "--when", "in 1 hour"])
+    r = _run(["--home", home, "status"])
+    assert r.exit_code == 0
+    assert "Reminders:" in r.output
+    assert "1 open" in r.output
+
+
+def test_python_dash_m_lumos_works(tmp_path):
+    """`python -m lumos --help` should also be a valid entry point."""
+    import subprocess
+    import sys
+
+    proc = subprocess.run(
+        [sys.executable, "-m", "lumos", "--home", str(tmp_path), "--help"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert proc.returncode == 0
+    assert "remind" in proc.stdout

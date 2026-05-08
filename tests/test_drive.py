@@ -80,6 +80,29 @@ def test_list_files_returns_results(drive, fake_service):
     call = fake_service._files.list_calls[0]
     assert call["pageSize"] == 50
     assert "nextPageToken" in call["fields"]
+    # Default excludes trashed.
+    assert call["q"] == "trashed = false"
+
+
+def test_list_files_default_query_with_user_query(drive, fake_service):
+    fake_service._files.list_responses = [{"files": []}]
+    drive.list_files(query="name = 'foo'")
+    q = fake_service._files.list_calls[0]["q"]
+    assert "trashed = false" in q
+    assert "name = 'foo'" in q
+
+
+def test_list_files_respects_user_query_with_trashed(drive, fake_service):
+    """If user already mentions trashed, don't auto-append."""
+    fake_service._files.list_responses = [{"files": []}]
+    drive.list_files(query="trashed = true")
+    assert fake_service._files.list_calls[0]["q"] == "trashed = true"
+
+
+def test_list_files_include_trashed_flag(drive, fake_service):
+    fake_service._files.list_responses = [{"files": []}]
+    drive.list_files(include_trashed=True)
+    assert fake_service._files.list_calls[0]["q"] is None
 
 
 def test_list_files_paginates(drive, fake_service):

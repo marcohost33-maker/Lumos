@@ -9,6 +9,10 @@ Public surface:
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional
+
 from .config import Config
 from .reminders import Reminder, ReminderService
 from .storage import Storage
@@ -24,6 +28,8 @@ __all__ = [
 ]
 
 __version__ = "0.1.0"
+
+_BACKUP_FOLDER_NAME = "Lumos Backups"
 
 
 class Lumos:
@@ -54,6 +60,70 @@ class Lumos:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
+
+    # ------------------------------------------------------------------ #
+    # Backup / restore — bridges reminders + Drive
+    # ------------------------------------------------------------------ #
+
+    def backup_to_drive(self, *, folder_id: Optional[str] = None) -> dict:
+        """Upload the current SQLite DB as a timestamped file to Drive.
+
+        If ``folder_id`` is None, a folder named ``Lumos Backups`` is
+        created (or reused) at the Drive root and used as the target.
+        Returns the uploaded file's metadata.
+        """
+        # Ensure on-disk DB reflects in-memory writes (WAL checkpoint).
+        try:
+            self.storage.conn.execute("PRAGMA wal_checkpoint(FULL);")
+        except Exception:
+            pass
+
+        if folder_id is None:
+            folder_id = self._ensure_backup_folder()
+
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        return self.drive.upload(
+            self.config.db_path,
+            folder_id=folder_id,
+            name=f"lumos-{ts}.db",
+            mime_type="application/x-sqlite3",
+        )
+
+    def restore_from_drive(self, file_id: str) -> Path:
+        """Download a backup from Drive and replace the local DB.
+
+        Closes the active storage connection, downloads to ``db_path``
+        atomically, then reopens. Returns the DB path.
+        """
+        if not file_id:
+            raise ValueError("file_id must not be empty")
+
+        tmp = self.config.db_path.with_suffix(".db.restore-tmp")
+        self.drive.download(file_id, tmp)
+
+        # Swap atomically: close current conn, replace file, reopen.
+        self.storage.close()
+        # Best-effort cleanup of WAL sidecars — they belong to the old DB.
+        for sfx in (".wal", ".shm"):
+            sidecar = self.config.db_path.with_suffix(self.config.db_path.suffix + sfx)
+            if sidecar.exists():
+                sidecar.unlink()
+        tmp.replace(self.config.db_path)
+        self.storage = Storage(self.config.db_path)
+        self.reminders = ReminderService(self.storage)
+        return self.config.db_path
+
+    def _ensure_backup_folder(self) -> str:
+        existing = self.drive.list_files(
+            query=(
+                f"name = '{_BACKUP_FOLDER_NAME}' and "
+                "mimeType = 'application/vnd.google-apps.folder'"
+            ),
+            max_results=1,
+        )
+        if existing:
+            return existing[0]["id"]
+        return self.drive.create_folder(_BACKUP_FOLDER_NAME)["id"]
 
 
 def __getattr__(name: str):

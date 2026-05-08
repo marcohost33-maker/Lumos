@@ -35,16 +35,26 @@ will print a helpful error if the libraries are missing).
 lumos remind add "Pay rent" --when "2026-06-01 09:00" --recurring monthly
 lumos remind list
 lumos remind list --due
+lumos remind today               # everything due before tomorrow
+lumos remind next                # the soonest reminder
+lumos remind update 1 --text "Pay rent (transfer)" --when "in 1 day"
 lumos remind complete 1
 lumos remind snooze 2 --minutes 30
 lumos remind delete 3
+lumos status                     # one-line summary
 
 # Google Drive
 lumos drive auth                 # one-time OAuth flow
 lumos drive list --query "name contains 'report'"
 lumos drive upload ./notes.md --folder-id <id>
 lumos drive download <file-id> --out ./notes.md
+
+# Bridge: back up reminders DB to Drive and restore later
+lumos backup                     # uploads to a 'Lumos Backups' folder
+lumos restore <file-id>          # replaces local DB with that backup
 ```
+
+Lumos is also runnable as a module: `python -m lumos --help`.
 
 ## Programmatic use
 

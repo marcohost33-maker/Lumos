@@ -83,11 +83,13 @@ class DriveClient:
                 log.warning("Could not load cached token (%s); re-authenticating.", e)
                 creds = None
 
+        refreshed = False
         if creds and creds.valid:
             pass
         elif creds and creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
+                refreshed = True
             except Exception as e:
                 log.warning("Token refresh failed (%s); re-authenticating.", e)
                 creds = None
@@ -106,7 +108,9 @@ class DriveClient:
                 creds = flow.run_console()
             else:
                 creds = flow.run_local_server(port=0)
+            refreshed = True
 
+        if refreshed:
             self.config.token_path.parent.mkdir(parents=True, exist_ok=True)
             self.config.token_path.write_text(creds.to_json())
 
@@ -125,14 +129,24 @@ class DriveClient:
         page_size: int = 50,
         max_results: Optional[int] = None,
         fields: Optional[str] = None,
+        include_trashed: bool = False,
     ) -> list[dict]:
         """List files matching a Drive query string.
 
-        See https://developers.google.com/drive/api/guides/search-files
+        Trashed files are excluded by default (override with
+        ``include_trashed=True`` or by writing ``trashed`` into ``query``
+        yourself). See
+        https://developers.google.com/drive/api/guides/search-files
         for query syntax. Pages are followed up to ``max_results``.
         """
         if page_size < 1 or page_size > 1000:
             raise ValueError("page_size must be between 1 and 1000")
+
+        effective_query = query
+        if not include_trashed and (query is None or "trashed" not in query):
+            effective_query = (
+                f"({query}) and trashed = false" if query else "trashed = false"
+            )
 
         field_spec = f"nextPageToken, files({fields or self.DEFAULT_FIELDS})"
         results: list[dict] = []
@@ -142,7 +156,7 @@ class DriveClient:
                 resp = (
                     self.service.files()
                     .list(
-                        q=query,
+                        q=effective_query,
                         pageSize=page_size,
                         fields=field_spec,
                         pageToken=page_token,

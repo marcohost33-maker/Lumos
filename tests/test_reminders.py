@@ -269,3 +269,101 @@ def test_str_renders_marker(app):
     r = app.reminders.add("hello", when="in 1 hour")
     assert "hello" in str(r)
     assert f"#{r.id}" in str(r)
+
+
+# --------------------------------------------------------------------------- #
+# update / next_due / in_window
+# --------------------------------------------------------------------------- #
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_update_text_via_update(app):
+    r = app.reminders.add("typo", when="in 1 hour")
+    updated = app.reminders.update(r.id, text="fixed")
+    assert updated.text == "fixed"
+    assert app.reminders.get(r.id).text == "fixed"
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_update_when(app):
+    r = app.reminders.add("call", when="in 1 hour")
+    updated = app.reminders.update(r.id, when="in 5 hours")
+    assert updated.due_at == datetime(2026, 5, 8, 17, 0, tzinfo=timezone.utc)
+    assert app.reminders.get(r.id).due_at == updated.due_at
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_update_clears_recurring(app):
+    r = app.reminders.add("daily", when="today 09:00", recurring="daily")
+    updated = app.reminders.update(r.id, recurring=None)
+    assert updated.recurring is None
+    assert app.reminders.get(r.id).recurring is None
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_update_clears_notes(app):
+    r = app.reminders.add("call", when="in 1 hour", notes="ring twice")
+    updated = app.reminders.update(r.id, notes=None)
+    assert updated.notes is None
+    assert app.reminders.get(r.id).notes is None
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_update_noop_returns_existing(app):
+    r = app.reminders.add("call", when="in 1 hour")
+    same = app.reminders.update(r.id)
+    assert same.id == r.id
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_update_rejects_empty_text(app):
+    r = app.reminders.add("x", when="in 1 hour")
+    with pytest.raises(ValueError):
+        app.reminders.update(r.id, text="   ")
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_update_rejects_bad_recurring(app):
+    r = app.reminders.add("x", when="in 1 hour")
+    with pytest.raises(ValueError):
+        app.reminders.update(r.id, recurring="yearly")
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_next_due_returns_soonest(app):
+    later = app.reminders.add("later", when="in 5 hours")
+    sooner = app.reminders.add("sooner", when="in 1 hour")
+    nxt = app.reminders.next_due()
+    assert nxt is not None and nxt.id == sooner.id
+
+
+def test_next_due_none_when_empty(app):
+    assert app.reminders.next_due() is None
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_next_due_excludes_completed(app):
+    r = app.reminders.add("done", when="in 1 hour")
+    app.reminders.complete(r.id)
+    assert app.reminders.next_due() is None
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_in_window(app):
+    a = app.reminders.add("a", when="in 1 hour")     # 13:00
+    b = app.reminders.add("b", when="in 25 hours")   # tomorrow 13:00
+    c = app.reminders.add("c", when="in 2 hours")    # 14:00
+    before = datetime(2026, 5, 8, 23, 59, tzinfo=timezone.utc)
+    items = app.reminders.in_window(before=before)
+    ids = {x.id for x in items}
+    assert a.id in ids and c.id in ids
+    assert b.id not in ids
+
+
+@freeze_time("2026-05-08 12:00:00", tz_offset=0)
+def test_in_window_with_after(app):
+    app.reminders.add("a", when="in 1 minute")
+    b = app.reminders.add("b", when="in 1 hour")
+    before = datetime(2026, 5, 8, 23, 59, tzinfo=timezone.utc)
+    after = datetime(2026, 5, 8, 12, 30, tzinfo=timezone.utc)
+    items = app.reminders.in_window(before=before, after=after)
+    assert [x.id for x in items] == [b.id]
