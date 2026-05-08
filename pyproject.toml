@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lumos"
+version = "0.1.0"
+description = "Lumos - a small personal assistant with reminders and Google Drive sync"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Lumos Contributors" }]
+keywords = ["assistant", "reminders", "google-drive", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = [
+    "click>=8.1",
+    "python-dateutil>=2.8",
+]
+
+[project.optional-dependencies]
+gdrive = [
+    "google-api-python-client>=2.100",
+    "google-auth-httplib2>=0.2",
+    "google-auth-oauthlib>=1.2",
+]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "freezegun>=1.4",
+]
+
+[project.scripts]
+lumos = "lumos.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["lumos"]
+branch = true
