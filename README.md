@@ -8,14 +8,22 @@ exposed as a Python library and a `lumos` CLI.
 
 ## Features
 
-- **Reminders** — create, list, snooze, complete and delete reminders with
-  natural language parsing for due dates (`"tomorrow 9am"`, `"in 2 hours"`,
-  `"2026-06-01 14:00"`).
-- **Recurring reminders** — `daily`, `weekly`, `monthly`.
-- **Persistent storage** — local SQLite database under `~/.lumos/`.
-- **Google Drive integration** — list, upload, download and search files.
-  OAuth credentials are loaded from `~/.lumos/credentials.json` and the
-  refresh token is cached locally.
+- **Reminders** — create, list, snooze, complete, update and delete
+  reminders with natural-language parsing for due dates (`"tomorrow 9am"`,
+  `"in 2 hours"`, `"2026-06-01 14:00"`).
+- **Recurring reminders** — `daily`, `weekly`, `monthly`. Monthly clamps
+  to month-end (Jan 31 → Feb 28). Completing rolls forward.
+- **Persistent storage** — local SQLite database under `~/.lumos/`,
+  configured with WAL + `synchronous=NORMAL` for a good durability /
+  performance tradeoff.
+- **Google Drive integration** — list, upload, download (with native
+  Google Workspace export), delete and search files. Uses the **narrow
+  `drive.file` scope** so Lumos only ever sees its own files. OAuth
+  tokens are cached locally with a **0600 atomic write**. All API calls
+  retry transient errors (429 / 5xx) with **exponential backoff + jitter**.
+- **Backup / restore** — one command to push your reminders DB to Drive
+  and restore from there (`lumos backup` / `lumos restore`), with
+  optional retention (`--keep N`).
 - **Offline-friendly** — every Drive operation is wrapped in a clean
   `DriveClient` abstraction; tests run without network access.
 
@@ -51,8 +59,18 @@ lumos drive download <file-id> --out ./notes.md
 
 # Bridge: back up reminders DB to Drive and restore later
 lumos backup                     # uploads to a 'Lumos Backups' folder
+lumos backup --keep 7            # keep only the 7 most recent backups
 lumos restore <file-id>          # replaces local DB with that backup
 ```
+
+### Drive scope note
+
+Lumos requests the `https://www.googleapis.com/auth/drive.file` scope —
+it can only see files it created or that the user explicitly shared with
+it. This is the scope Google recommends for app-specific use; it avoids
+the heavyweight Google verification process. If you previously authorized
+Lumos with the broader `drive` scope, delete `~/.lumos/token.json` and
+re-run `lumos drive auth`.
 
 Lumos is also runnable as a module: `python -m lumos --help`.
 

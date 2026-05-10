@@ -65,13 +65,25 @@ class Lumos:
     # Backup / restore — bridges reminders + Drive
     # ------------------------------------------------------------------ #
 
-    def backup_to_drive(self, *, folder_id: Optional[str] = None) -> dict:
+    def backup_to_drive(
+        self,
+        *,
+        folder_id: Optional[str] = None,
+        keep: Optional[int] = None,
+    ) -> dict:
         """Upload the current SQLite DB as a timestamped file to Drive.
 
         If ``folder_id`` is None, a folder named ``Lumos Backups`` is
         created (or reused) at the Drive root and used as the target.
+        If ``keep`` is provided, older Lumos backups in that folder
+        beyond the most recent ``keep`` are deleted after the new upload
+        succeeds.
+
         Returns the uploaded file's metadata.
         """
+        if keep is not None and keep < 1:
+            raise ValueError("keep must be >= 1")
+
         # Ensure on-disk DB reflects in-memory writes (WAL checkpoint).
         try:
             self.storage.conn.execute("PRAGMA wal_checkpoint(FULL);")
@@ -82,12 +94,52 @@ class Lumos:
             folder_id = self._ensure_backup_folder()
 
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        return self.drive.upload(
+        meta = self.drive.upload(
             self.config.db_path,
             folder_id=folder_id,
             name=f"lumos-{ts}.db",
             mime_type="application/x-sqlite3",
         )
+
+        if keep is not None:
+            self._prune_backups(folder_id, keep=keep)
+
+        return meta
+
+    def _prune_backups(self, folder_id: str, *, keep: int) -> list[str]:
+        """Delete older ``lumos-*.db`` backups in ``folder_id`` past ``keep``.
+
+        Returns the ids that were deleted. Failures to delete individual
+        items are logged and swallowed — losing a stale backup is much
+        better than crashing in the middle of cleanup.
+        """
+        # Escape the folder id for the Drive query.
+        safe_id = folder_id.replace("\\", "\\\\").replace("'", "\\'")
+        files = self.drive.list_files(
+            query=(
+                f"'{safe_id}' in parents and "
+                "name contains 'lumos-' and "
+                "mimeType != 'application/vnd.google-apps.folder'"
+            ),
+            fields="id, name, createdTime, modifiedTime",
+        )
+        # Drive returns no guaranteed order; sort newest-first.
+        files.sort(
+            key=lambda f: (f.get("modifiedTime") or f.get("createdTime") or ""),
+            reverse=True,
+        )
+        deleted: list[str] = []
+        for stale in files[keep:]:
+            try:
+                self.drive.delete(stale["id"])
+                deleted.append(stale["id"])
+            except Exception as e:  # noqa: BLE001
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "could not prune backup %s (%s): %s", stale.get("id"), stale.get("name"), e
+                )
+        return deleted
 
     def restore_from_drive(self, file_id: str) -> Path:
         """Download a backup from Drive and replace the local DB.

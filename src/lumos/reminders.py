@@ -306,9 +306,17 @@ class ReminderService:
         now = _now_utc()
         if existing.recurring:
             new_due = _add_recurrence(existing.due_at, existing.recurring)
-            # Roll forward past 'now' for very stale reminders.
-            while new_due <= now:
+            # Roll forward past 'now' for very stale reminders. Cap the
+            # number of skip iterations so a malformed recurrence (e.g.
+            # one that doesn't advance) can never spin forever.
+            for _ in range(10_000):
+                if new_due > now:
+                    break
                 new_due = _add_recurrence(new_due, existing.recurring)
+            else:  # pragma: no cover - defensive
+                raise RuntimeError(
+                    f"recurrence {existing.recurring!r} failed to advance past now"
+                )
             with self.storage.transaction() as cur:
                 cur.execute(
                     "UPDATE reminders SET due_at = ? WHERE id = ?",

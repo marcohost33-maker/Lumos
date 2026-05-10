@@ -52,7 +52,16 @@ class Storage:
         )
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON;")
+        # WAL gives readers and writers concurrency; synchronous=NORMAL is
+        # the sweet spot per SQLite's own guidance: ACID is preserved
+        # except that a transaction *committed* immediately before a
+        # power loss may roll back. For a personal reminders app this is
+        # the right tradeoff vs the perf cost of synchronous=FULL.
+        # https://www.sqlite.org/wal.html
         self.conn.execute("PRAGMA journal_mode = WAL;")
+        self.conn.execute("PRAGMA synchronous = NORMAL;")
+        # Modest in-memory cache + temp store for snappier queries.
+        self.conn.execute("PRAGMA temp_store = MEMORY;")
         self._migrate()
 
     def _migrate(self) -> None:

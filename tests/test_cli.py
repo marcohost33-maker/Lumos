@@ -180,6 +180,11 @@ def test_status_command(tmp_path):
     assert "1 open" in r.output
 
 
+def test_backup_keep_zero_rejected(tmp_path):
+    r = _run(["--home", str(tmp_path), "backup", "--keep", "0"])
+    assert r.exit_code != 0
+
+
 def test_python_dash_m_lumos_works(tmp_path):
     """`python -m lumos --help` should also be a valid entry point."""
     import subprocess

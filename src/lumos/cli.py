@@ -433,14 +433,22 @@ def drive_mkdir(ctx: click.Context, name: str, parent_id: Optional[str]) -> None
     default=None,
     help="Drive folder id (default: a 'Lumos Backups' folder at root).",
 )
+@click.option(
+    "--keep",
+    type=int,
+    default=None,
+    help="Keep only the most recent N backups (delete older ones after upload).",
+)
 @click.pass_context
-def backup_cmd(ctx: click.Context, folder_id: Optional[str]) -> None:
+def backup_cmd(
+    ctx: click.Context, folder_id: Optional[str], keep: Optional[int]
+) -> None:
     """Upload the local SQLite DB to Google Drive as a timestamped backup."""
     from .drive import DriveError
 
     try:
-        meta = _app(ctx).backup_to_drive(folder_id=folder_id)
-    except DriveError as e:
+        meta = _app(ctx).backup_to_drive(folder_id=folder_id, keep=keep)
+    except (DriveError, ValueError) as e:
         raise click.ClickException(str(e))
     click.echo(f"Backed up as {meta.get('name')} (id={meta.get('id')}).")
 

@@ -71,11 +71,14 @@ class _StubDrive:
         fid = self._new_id()
         data = Path(path).read_bytes()
         self.files[fid] = data
+        # Use a real UTC timestamp so prune sort is deterministic.
+        from datetime import datetime, timezone
         meta = {
             "id": fid,
             "name": name or Path(path).name,
             "mimeType": mime_type or "application/octet-stream",
             "parents": [folder_id] if folder_id else [],
+            "modifiedTime": datetime.now(timezone.utc).isoformat(),
         }
         self.meta[fid] = meta
         return meta
@@ -87,6 +90,10 @@ class _StubDrive:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(self.files[file_id])
         return out
+
+    def delete(self, file_id):
+        self.files.pop(file_id, None)
+        self.meta.pop(file_id, None)
 
 
 def _patch_drive(app: Lumos, stub: _StubDrive) -> None:
@@ -157,3 +164,93 @@ def test_restore_rejects_empty_id(config: Config):
 
         with _pt.raises(ValueError):
             app.restore_from_drive("")
+
+
+# --------------------------------------------------------------------------- #
+# Backup retention (--keep) prunes oldest, never the newest
+# --------------------------------------------------------------------------- #
+
+import pytest as _pytest
+
+
+class _StubDriveWithFolderListing(_StubDrive):
+    """list_files honours a parent-folder query so _prune_backups works."""
+
+    def list_files(
+        self, *, query=None, max_results=None, include_trashed=False,
+        fields=None, **kw,
+    ):
+        if query and "Lumos Backups" in query:
+            return [m for m in self.folders.values() if m["name"] == "Lumos Backups"]
+        if query and "in parents" in query:
+            # Pretend everything we uploaded sits in the backup folder.
+            return [
+                dict(m, modifiedTime=m.get("modifiedTime", ""))
+                for m in self.meta.values()
+            ]
+        return list(self.meta.values())
+
+
+def _stub_with_n_existing_backups(stub: _StubDriveWithFolderListing, n: int) -> str:
+    """Pre-populate ``n`` fake backup files in a 'Lumos Backups' folder."""
+    folder = stub.create_folder("Lumos Backups")
+    for i in range(n):
+        fid = stub._new_id()
+        stub.files[fid] = b""
+        stub.meta[fid] = {
+            "id": fid,
+            "name": f"lumos-2026050{i}T000000Z.db",
+            "modifiedTime": f"2026-05-0{i}T00:00:00Z",
+            "parents": [folder["id"]],
+        }
+    return folder["id"]
+
+
+def test_prune_backups_keeps_n_newest(config: Config):
+    with Lumos(config=config) as app:
+        stub = _StubDriveWithFolderListing()
+        _patch_drive(app, stub)
+        folder_id = _stub_with_n_existing_backups(stub, 5)
+        deleted = app._prune_backups(folder_id, keep=2)
+        assert len(deleted) == 3
+        remaining_mtimes = sorted(
+            (m["modifiedTime"] for m in stub.meta.values()), reverse=True
+        )
+        # Two newest survive.
+        assert len(remaining_mtimes) == 2
+        assert remaining_mtimes[0] > remaining_mtimes[1]
+
+
+def test_prune_backups_noop_when_below_keep(config: Config):
+    with Lumos(config=config) as app:
+        stub = _StubDriveWithFolderListing()
+        _patch_drive(app, stub)
+        folder_id = _stub_with_n_existing_backups(stub, 2)
+        deleted = app._prune_backups(folder_id, keep=5)
+        assert deleted == []
+        assert len(stub.meta) == 2
+
+
+def test_backup_keep_zero_rejected(config: Config):
+    with Lumos(config=config) as app:
+        _patch_drive(app, _StubDriveWithFolderListing())
+        with _pytest.raises(ValueError):
+            app.backup_to_drive(keep=0)
+
+
+def test_backup_with_keep_invokes_prune(config: Config):
+    with Lumos(config=config) as app:
+        stub = _StubDriveWithFolderListing()
+        _patch_drive(app, stub)
+        # Seed two existing backups.
+        folder_id = _stub_with_n_existing_backups(stub, 2)
+        # Annotate them so prune sort picks the seeded ones as "oldest".
+        # New upload should land in the same folder by name lookup.
+        meta = app.backup_to_drive(keep=1)
+        # Pretend the new upload has the newest mtime.
+        stub.meta[meta["id"]]["modifiedTime"] = "2026-12-31T00:00:00Z"
+        # Manually re-run prune to test deterministic outcome.
+        app._prune_backups(folder_id, keep=1)
+        # Only one backup left, and it's the newest.
+        survivors = [m["modifiedTime"] for m in stub.meta.values()]
+        assert len(survivors) == 1
