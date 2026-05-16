@@ -306,9 +306,17 @@ class ReminderService:
         now = _now_utc()
         if existing.recurring:
             new_due = _add_recurrence(existing.due_at, existing.recurring)
-            # Roll forward past 'now' for very stale reminders.
-            while new_due <= now:
+            # Roll forward past 'now' for very stale reminders. Cap the
+            # number of skip iterations so a malformed recurrence (e.g.
+            # one that doesn't advance) can never spin forever.
+            for _ in range(10_000):
+                if new_due > now:
+                    break
                 new_due = _add_recurrence(new_due, existing.recurring)
+            else:  # pragma: no cover - defensive
+                raise RuntimeError(
+                    f"recurrence {existing.recurring!r} failed to advance past now"
+                )
             with self.storage.transaction() as cur:
                 cur.execute(
                     "UPDATE reminders SET due_at = ? WHERE id = ?",
@@ -343,16 +351,92 @@ class ReminderService:
         return existing
 
     def update_text(self, reminder_id: int, text: str) -> Reminder:
-        if not text or not text.strip():
-            raise ValueError("reminder text must not be empty")
+        return self.update(reminder_id, text=text)
+
+    _SENTINEL = object()
+
+    def update(
+        self,
+        reminder_id: int,
+        *,
+        text: Optional[str] = None,
+        when: str | datetime | None = None,
+        recurring: object = _SENTINEL,
+        notes: object = _SENTINEL,
+    ) -> Reminder:
+        """Update one or more fields of a reminder.
+
+        Use ``recurring=None`` / ``notes=None`` to clear those fields
+        explicitly. Omit a parameter to leave it unchanged.
+        """
         existing = self._require(reminder_id)
+        sets: list[str] = []
+        params: list = []
+
+        if text is not None:
+            if not text.strip():
+                raise ValueError("reminder text must not be empty")
+            sets.append("text = ?")
+            params.append(text.strip())
+            existing.text = text.strip()
+
+        if when is not None:
+            new_due = (
+                _ensure_aware(when) if isinstance(when, datetime) else parse_when(when)
+            )
+            sets.append("due_at = ?")
+            params.append(new_due.isoformat())
+            existing.due_at = new_due
+
+        if recurring is not self._SENTINEL:
+            rec = (
+                self._validate_recurring(recurring)  # type: ignore[arg-type]
+                if recurring is not None
+                else None
+            )
+            sets.append("recurring = ?")
+            params.append(rec)
+            existing.recurring = rec  # type: ignore[assignment]
+
+        if notes is not self._SENTINEL:
+            sets.append("notes = ?")
+            params.append(notes)
+            existing.notes = notes  # type: ignore[assignment]
+
+        if not sets:
+            return existing  # nothing to do
+
+        params.append(reminder_id)
         with self.storage.transaction() as cur:
             cur.execute(
-                "UPDATE reminders SET text = ? WHERE id = ?",
-                (text.strip(), reminder_id),
+                f"UPDATE reminders SET {', '.join(sets)} WHERE id = ?",
+                params,
             )
-        existing.text = text.strip()
         return existing
+
+    def next_due(self, *, include_completed: bool = False) -> Optional[Reminder]:
+        """Return the soonest-upcoming reminder, or None."""
+        items = self.list(include_completed=include_completed, limit=1)
+        return items[0] if items else None
+
+    def in_window(
+        self,
+        *,
+        before: datetime,
+        after: Optional[datetime] = None,
+        include_completed: bool = False,
+    ) -> list[Reminder]:
+        """Reminders due strictly before ``before`` (and at-or-after ``after``)."""
+        sql = "SELECT * FROM reminders WHERE due_at < ?"
+        params: list = [_ensure_aware(before).isoformat()]
+        if after is not None:
+            sql += " AND due_at >= ?"
+            params.append(_ensure_aware(after).isoformat())
+        if not include_completed:
+            sql += " AND completed_at IS NULL"
+        sql += " ORDER BY due_at ASC"
+        cur = self.storage.conn.execute(sql, params)
+        return [Reminder.from_row(r) for r in cur.fetchall()]
 
     # ---- delete ----------------------------------------------------------- #
 

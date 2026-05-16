@@ -198,6 +198,88 @@ def remind_clear_completed(ctx: click.Context) -> None:
     click.echo(f"Removed {n} completed reminder(s).")
 
 
+@remind_group.command("next")
+@click.pass_context
+def remind_next(ctx: click.Context) -> None:
+    """Show the soonest-upcoming reminder."""
+    r = _app(ctx).reminders.next_due()
+    if r is None:
+        click.echo("No upcoming reminders.")
+        return
+    _print_reminder(r)
+
+
+@remind_group.command("today")
+@click.option("--all", "show_all", is_flag=True, help="Include completed.")
+@click.pass_context
+def remind_today(ctx: click.Context, show_all: bool) -> None:
+    """List reminders due before tomorrow (local time)."""
+    from datetime import datetime, time, timedelta, timezone
+
+    now_local = datetime.now().astimezone()
+    tomorrow_start_local = (
+        (now_local + timedelta(days=1))
+        .replace(hour=0, minute=0, second=0, microsecond=0)
+    )
+    tomorrow_utc = tomorrow_start_local.astimezone(timezone.utc)
+    items = _app(ctx).reminders.in_window(
+        before=tomorrow_utc, include_completed=show_all
+    )
+    if not items:
+        click.echo("Nothing due today.")
+        return
+    for r in items:
+        _print_reminder(r)
+
+
+@remind_group.command("update")
+@click.argument("reminder_id", type=int)
+@click.option("--text", "-t", default=None, help="New text.")
+@click.option("--when", "-w", default=None, help="New due date.")
+@click.option(
+    "--recurring",
+    "-r",
+    type=click.Choice(["daily", "weekly", "monthly", "none"]),
+    default=None,
+    help="Set or clear ('none') recurrence.",
+)
+@click.option("--notes", "-n", default=None, help="Replace notes.")
+@click.option("--clear-notes", is_flag=True, help="Drop existing notes.")
+@click.pass_context
+def remind_update(
+    ctx: click.Context,
+    reminder_id: int,
+    text: Optional[str],
+    when: Optional[str],
+    recurring: Optional[str],
+    notes: Optional[str],
+    clear_notes: bool,
+) -> None:
+    """Update one or more fields of a reminder."""
+    svc = _app(ctx).reminders
+    kwargs: dict = {}
+    if text is not None:
+        kwargs["text"] = text
+    if when is not None:
+        kwargs["when"] = when
+    if recurring is not None:
+        kwargs["recurring"] = None if recurring == "none" else recurring
+    if clear_notes:
+        kwargs["notes"] = None
+    elif notes is not None:
+        kwargs["notes"] = notes
+
+    if not kwargs:
+        raise click.ClickException("nothing to update — pass at least one option")
+
+    try:
+        r = svc.update(reminder_id, **kwargs)
+    except (KeyError, ValueError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Updated #{r.id}.")
+    _print_reminder(r)
+
+
 # --------------------------------------------------------------------------- #
 # Drive
 # --------------------------------------------------------------------------- #
@@ -224,13 +306,25 @@ def drive_auth(ctx: click.Context, headless: bool) -> None:
 @drive_group.command("list")
 @click.option("--query", "-q", default=None, help="Drive query string.")
 @click.option("--limit", type=int, default=25)
+@click.option(
+    "--include-trashed",
+    is_flag=True,
+    help="Also include files in the trash (default: excluded).",
+)
 @click.pass_context
-def drive_list(ctx: click.Context, query: Optional[str], limit: int) -> None:
+def drive_list(
+    ctx: click.Context,
+    query: Optional[str],
+    limit: int,
+    include_trashed: bool,
+) -> None:
     """List Drive files."""
     from .drive import DriveError
 
     try:
-        files = _app(ctx).drive.list_files(query=query, max_results=limit)
+        files = _app(ctx).drive.list_files(
+            query=query, max_results=limit, include_trashed=include_trashed
+        )
     except DriveError as e:
         raise click.ClickException(str(e))
     if not files:
@@ -327,6 +421,71 @@ def drive_mkdir(ctx: click.Context, name: str, parent_id: Optional[str]) -> None
     except DriveError as e:
         raise click.ClickException(str(e))
     click.echo(f"Created folder {meta.get('id')} ({meta.get('name')}).")
+
+
+# --------------------------------------------------------------------------- #
+# Backup / restore (bridges reminders + Drive)
+# --------------------------------------------------------------------------- #
+
+@main.command("backup")
+@click.option(
+    "--folder-id",
+    default=None,
+    help="Drive folder id (default: a 'Lumos Backups' folder at root).",
+)
+@click.option(
+    "--keep",
+    type=int,
+    default=None,
+    help="Keep only the most recent N backups (delete older ones after upload).",
+)
+@click.pass_context
+def backup_cmd(
+    ctx: click.Context, folder_id: Optional[str], keep: Optional[int]
+) -> None:
+    """Upload the local SQLite DB to Google Drive as a timestamped backup."""
+    from .drive import DriveError
+
+    try:
+        meta = _app(ctx).backup_to_drive(folder_id=folder_id, keep=keep)
+    except (DriveError, ValueError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Backed up as {meta.get('name')} (id={meta.get('id')}).")
+
+
+@main.command("restore")
+@click.argument("file_id")
+@click.confirmation_option(
+    prompt="This will replace your local Lumos database. Continue?"
+)
+@click.pass_context
+def restore_cmd(ctx: click.Context, file_id: str) -> None:
+    """Replace local DB with a backup from Drive."""
+    from .drive import DriveError
+
+    try:
+        path = _app(ctx).restore_from_drive(file_id)
+    except (DriveError, ValueError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Restored to {path}.")
+
+
+@main.command("status")
+@click.pass_context
+def status_cmd(ctx: click.Context) -> None:
+    """Show a brief status summary."""
+    app = _app(ctx)
+    total = len(app.reminders.list(include_completed=True))
+    open_ = len(app.reminders.list(include_completed=False))
+    due = len(app.reminders.due())
+    nxt = app.reminders.next_due()
+    click.echo(f"Home:           {app.config.home}")
+    click.echo(f"Reminders:      {open_} open ({total} total)")
+    click.echo(f"Due now:        {due}")
+    if nxt is not None:
+        click.echo(f"Next:           {nxt}")
+    else:
+        click.echo("Next:           —")
 
 
 if __name__ == "__main__":  # pragma: no cover

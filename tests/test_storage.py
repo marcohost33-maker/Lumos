@@ -42,3 +42,17 @@ def test_close_is_idempotent(tmp_path):
     s = Storage(tmp_path / "c.db")
     s.close()
     s.close()  # no exception
+
+
+def test_pragmas_are_applied(tmp_path):
+    s = Storage(tmp_path / "p.db")
+    try:
+        jm = s.conn.execute("PRAGMA journal_mode").fetchone()[0]
+        assert jm.lower() == "wal"
+        sync = s.conn.execute("PRAGMA synchronous").fetchone()[0]
+        # 0=OFF, 1=NORMAL, 2=FULL, 3=EXTRA
+        assert sync == 1, f"expected synchronous=NORMAL(1), got {sync}"
+        fk = s.conn.execute("PRAGMA foreign_keys").fetchone()[0]
+        assert fk == 1
+    finally:
+        s.close()
