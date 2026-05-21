@@ -1,0 +1,67 @@
+# Dependabot — npm + github-actions
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Grouping syntax: https://github.blog/changelog/2026-02-24-...
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Zurich"
+    open-pull-requests-limit: 8
+    groups:
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      vite:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "vite-plugin-*"
+          - "vitest"
+      testing:
+        patterns:
+          - "@playwright/*"
+          - "@testing-library/*"
+          - "jsdom"
+      npm-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+      npm-security:
+        applies-to: security-updates
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "npm"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Zurich"
+    open-pull-requests-limit: 5
+    groups:
+      actions-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+      actions-security:
+        applies-to: security-updates
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
