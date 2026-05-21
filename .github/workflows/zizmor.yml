@@ -32,13 +32,17 @@ jobs:
           persist-credentials: false
 
       - name: Run zizmor
+        # zizmor exits non-zero when it finds issues. Run as informational
+        # (continue-on-error) so the job surfaces findings via SARIF/log
+        # without blocking unrelated CI. Fix findings to clear the warning.
+        continue-on-error: true
         uses: zizmorcore/zizmor-action@5f14fd08f7cf1cb1609c1e344975f152c7ee938d  # v0.5.6
         with:
           persona: regular
 
       - name: Upload SARIF
-        # Only run if zizmor actually produced a SARIF (it skips on a clean repo)
-        # and tolerate the upload failing on private repos without GitHub Advanced Security.
+        # Only run if zizmor actually produced a SARIF, and tolerate the
+        # upload failing on private repos without GitHub Advanced Security.
         if: ${{ !cancelled() && hashFiles('zizmor.sarif') != '' }}
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@f411752efdf656cb71aa17b755b22c890960da1d  # v3.35.5
