@@ -36,6 +36,10 @@ jobs:
         # (continue-on-error) so the job surfaces findings via SARIF/log
         # without blocking unrelated CI. Fix findings to clear the warning.
         continue-on-error: true
+        env:
+          # [2026-05-23] zizmor impostor-check needs authenticated GH API
+          # (60/h -> 1000/h). Without this: false-positive rate-limit errors.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         uses: zizmorcore/zizmor-action@5f14fd08f7cf1cb1609c1e344975f152c7ee938d  # v0.5.6
         with:
           persona: regular
