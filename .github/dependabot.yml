@@ -10,6 +10,10 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Europe/Zurich"
+    # Cooldown: ignore releases younger than N days, so a just-published
+    # (possibly compromised) version is not pulled in immediately. (zizmor: dependabot-cooldown)
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 8
     groups:
       react:
@@ -50,6 +54,9 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Europe/Zurich"
+    # Cooldown: ignore releases younger than N days. (zizmor: dependabot-cooldown)
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     groups:
       actions-minor-and-patch:
