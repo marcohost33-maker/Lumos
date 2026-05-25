@@ -32,10 +32,7 @@ jobs:
           persist-credentials: false
 
       - name: Run zizmor
-        # zizmor exits non-zero when it finds issues. Run as informational
-        # (continue-on-error) so the job surfaces findings via SARIF/log
-        # without blocking unrelated CI. Fix findings to clear the warning.
-        continue-on-error: true
+        # zizmor exits non-zero bei Findings -> dieser Step GATET die CI (rot = blockt merge).
         env:
           # [2026-05-23] zizmor impostor-check needs authenticated GH API
           # (60/h -> 1000/h). Without this: false-positive rate-limit errors.
