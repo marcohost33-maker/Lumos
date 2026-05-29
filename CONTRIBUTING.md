@@ -19,6 +19,13 @@ suite, and submit changes.
   - `config.py` — configuration handling
 - **License:** MIT (see [`LICENSE`](LICENSE)).
 
+> **Note — companion web app:** this repository also carries a separate
+> single-file React companion under [`web/`](web/) (e.g. `web/v1.7.1/`). That app
+> has its own versioning lineage (the git tags `v1.7.x` track it, independently of
+> this Python package's `pyproject.toml` version). The guidance below is for the
+> **Python CLI/library** (the repo's primary package). For the web companion,
+> see its own folder/README.
+
 ## Development setup
 
 ```bash
