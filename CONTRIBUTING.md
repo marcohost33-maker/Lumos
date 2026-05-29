@@ -1,79 +1,78 @@
 # Contributing to Lumos
 
-Thanks for your interest in Lumos!
+Thanks for your interest in improving **Lumos** — a small personal assistant
+with reminders and Google Drive sync, exposed as a Python library and a `lumos`
+command-line tool.
 
-Lumos is a personal-project chat companion built by [@marcohost33-maker](https://github.com/marcohost33-maker) as part of the Coworkerz collective. It's the only **public** repo in the collective — the rest are private research/product code.
+This guide explains how to set up a development environment, run the test
+suite, and submit changes.
 
-## What Lumos is
+## Project at a glance
 
-A single-file React app + Anthropic-API client, with:
-- Pixel-engine Canvas2D companion
-- Streaming (SSE), prompt-editor, max-tokens / temperature sliders, retry-backoff
-- localStorage persistence + export/import
+- **Language:** Python (>= 3.9)
+- **Shape:** a `lumos` package (`src/lumos/`) with a CLI entry point and a
+  small set of focused modules:
+  - `cli.py` — command-line interface (`lumos` / `python -m lumos`)
+  - `reminders.py` — reminder logic
+  - `storage.py` — local persistence
+  - `drive.py` — Google Drive sync (`DriveClient` abstraction)
+  - `config.py` — configuration handling
+- **License:** MIT (see [`LICENSE`](LICENSE)).
 
-## Scope of contributions
+## Development setup
 
-Because Lumos is part of a larger personal stack (ADR LUMOS-001 deliberately keeps it single-file + Anthropic-API + zero shared deps with other coworkerz repos), the scope for external contributions is narrow:
+```bash
+# clone, then from the repo root:
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e .[dev,gdrive]
+```
 
-### Welcome
+- `dev` installs the test tooling (`pytest`, `pytest-cov`, `freezegun`).
+- `gdrive` installs the Google Drive client libraries. It is optional — the
+  test suite runs without network access and without Drive credentials.
 
-- **Bug reports** — UX glitches, accessibility issues, API edge cases
-- **Security findings** — see `SECURITY.md` for the reporting channel
-- **Documentation** — README clarifications, broken links, typos
-- **Small UX fixes** — keyboard navigation, contrast, focus management
-- **Browser-compatibility patches** — older Safari, mobile-specific quirks
+## Running the tests
 
-### Not in scope (please open an issue first)
+```bash
+pytest                 # full suite
+pytest --cov=lumos     # with coverage
+```
 
-- Multi-file refactors (single-file constraint is intentional)
-- Switching to another LLM provider (Anthropic-only is a design choice)
-- Adding telemetry, analytics, or external services
-- Server-side / backend components
-- Build-tool changes (Vite + vite-plugin-singlefile is the canon)
+The test suite is designed to run **without network access**: Drive
+interactions go through the `DriveClient` abstraction and are exercised with
+fakes/fixtures. Please keep new tests offline-safe.
 
-If you have an idea that doesn't fit "welcome" above, **open an issue first** before coding — it might already be incompatible with ADR LUMOS-001.
+## Making a change
 
-## How to submit a change
+1. Create a topic branch off `main`.
+2. Make your change with accompanying tests.
+3. Run `pytest` locally and make sure it is green.
+4. Open a pull request describing **what** changed and **why**. CI must pass
+   before review.
 
-1. **Open an issue first** describing the problem and your proposed fix (skip for trivial typos).
-2. **Fork + branch** off `main` with a descriptive name (`fix/contrast-dark-mode`, `docs/typo-readme`, etc).
-3. **Keep the diff minimal** — one logical change per PR.
-4. **Run locally:**
-   - `npm install` (only on first checkout)
-   - `npm run build` (must succeed without warnings)
-   - Open `dist/index.html` in Chrome + Firefox + Safari and verify your change
-5. **No dependencies added** unless absolutely required (single-file constraint).
-6. **Submit PR** with:
-   - What changed and why (1-2 sentences)
-   - Browser-test evidence (which browsers, what you checked)
-   - Reference the issue number
+Small, focused PRs are easier to review than large ones. If you are planning a
+larger change, please open an issue first so we can agree on the direction.
 
 ## Code style
 
-- React functional components, hooks
-- 2-space indent, single quotes, no semicolons-when-redundant
-- Comments only for non-obvious *why*, not *what*
-- Don't reorganize unrelated code in your PR
+Keep the style consistent with the surrounding code: clear names, small
+functions, and comments only where the *why* is not obvious. There is no
+enforced formatter in the repo today; match what is already there.
 
-## Review timeline
+## Licensing of contributions
 
-- Bug reports: acknowledged within ~3 business days
-- PRs: reviewed within ~7 business days
+Lumos is released under the **MIT License**. By contributing, you agree that
+your contributions are licensed under the same MIT terms as the rest of the
+project. There is no contributor license agreement (CLA) to sign.
 
-This is a personal project — patience appreciated.
+## Reporting bugs and security issues
 
-## License
+- **Bugs / feature requests:** open a GitHub issue with steps to reproduce.
+- **Security vulnerabilities:** please do **not** open a public issue. Follow
+  the process described in [`SECURITY.md`](SECURITY.md).
 
-Lumos is currently **license-pending** (see ADR-019 in the parent Coworkerz collective). Contributing means you agree your changes can be re-licensed under the final license chosen by the maintainer.
+## Code of conduct
 
-## Code of Conduct
-
-Lumos follows the [Contributor Covenant 2.1](./CODE_OF_CONDUCT.md). Be kind, assume good intent, no harassment.
-
-## Questions?
-
-Open an issue with the `question` label, or email <marcohost33@gmail.com>.
-
----
-
-*Lumos is a positive AI companion. Let's keep this community positive too.*
+This project follows the [Code of Conduct](CODE_OF_CONDUCT.md). By
+participating, you are expected to uphold it.
