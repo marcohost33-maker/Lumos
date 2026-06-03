@@ -1,8 +1,8 @@
 ---
 name: lumos-agents-md
 description: AI coding agent instructions for Lumos — a positive AI-companion shipped as a dual-lineage repo (Python `lumos` CLI package + single-file React web companion)
-version: "1.1"
-last_updated: 2026-05-29
+version: "1.2"
+last_updated: 2026-06-03
 priority_when_in_conflict: 1
 ---
 
@@ -137,6 +137,18 @@ matrix. All four are **required status checks** on `main`.
   (ASCII-only), and bump the dated filename + `web/v1.7.1/README.md` lineage.
 - **License headers:** MIT — keep `LICENSE`, `pyproject.license`, and README
   "## License" consistent on any version change.
+
+## Branch & PR conventions (agents)
+
+- **One agent = one branch prefix:** `claude/<task>` (Claude Code), `codex/<task>`
+  (OpenAI Codex), `bot/<task>` (CI/automation). Human-led work: `feat|fix|docs/<task>`.
+- **Agent output opens as a Draft PR** and stays draft until Definition-of-Done is
+  verified; then mark ready.
+- **Label agent PRs:** `agent:claude` / `agent:codex` / `agent:bot`.
+- **Auto-merge over manual merge:** enable `gh pr merge --auto --squash` once required
+  checks exist; a second concurrent PR must rebase on the updated main.
+- **No concurrent agent pushes** to the same repo: serialize, or split work by branch
+  namespace and let auto-merge order the merges.
 
 ## Don't
 
