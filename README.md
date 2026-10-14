@@ -85,6 +85,35 @@ for r in app.reminders.due():
     print(r)
 ```
 
+## Web companion (`web/`)
+
+Next to the Python package, the repository contains a separate **web
+companion** under `web/v1.7.1/`: a single-file React chat app that talks to
+the Anthropic API directly from the browser. You bring your own API key; it
+is stored in the browser's `localStorage`.
+
+- `web/v1.7.1/Lumos-v1.7.1-standalone.html` — prebuilt bundle, open it
+  directly in a browser.
+- `web/v1.7.1/lumos_v1.7.1_2026-05-20.jsx` — single-file React source.
+- There is no npm package, no `package.json` and no build step.
+
+The web companion and the Python package are independent deliverables; one
+does not depend on the other. Details and lineage (in German):
+`web/v1.7.1/README.md`.
+
+## Versions
+
+Lumos has two version lines on purpose:
+
+- **Git tags and GitHub releases** (`v1.7.1`, `v1.7.2`) follow the web
+  companion's version line. `v1.7.1` is the web companion release;
+  `v1.7.2` is a CI and security hardening of the repository with no
+  user-facing change (see `CHANGELOG.md`).
+- **The Python package** has its own version, currently `0.1.0`
+  (`pyproject.toml`, `lumos.__version__`).
+
+The numbers are not meant to match.
+
 ## Layout
 
 ```
