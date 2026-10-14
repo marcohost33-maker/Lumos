@@ -2,7 +2,7 @@
 name: lumos-agents-md
 description: AI coding agent instructions for Lumos — a positive AI-companion shipped as a dual-lineage repo (Python `lumos` CLI package + single-file React web companion)
 version: "1.2"
-last_updated: 2026-06-03
+last_updated: 2026-10-14
 priority_when_in_conflict: 1
 ---
 
