@@ -4,6 +4,15 @@ All notable changes to Lumos are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Tests are timezone-independent on every OS. The `_set_tz` fixture relied on
+  `TZ` + `time.tzset()`, which does not exist on Windows, so five reminder tests failed on
+  any non-UTC Windows machine (measured: Europe/Zurich, 2 h offset). `lumos.reminders`
+  now resolves the local zone through `LOCAL_TZ` / `_as_local()`; `None` (the default)
+  is exactly the previous `astimezone()` behaviour, and the fixture pins it to UTC.
+
 ## [1.7.2] - 2026-05-28
 
 CI/Security hardening pass — no user-facing change.
