@@ -2,7 +2,7 @@
 name: lumos-agents-md
 description: AI coding agent instructions for Lumos — a positive AI-companion shipped as a dual-lineage repo (Python `lumos` CLI package + single-file React web companion)
 version: "1.2"
-last_updated: 2026-06-03
+last_updated: 2026-10-14
 priority_when_in_conflict: 1
 ---
 
@@ -35,9 +35,9 @@ priority_when_in_conflict: 1
 - **Purpose:** Lumos is the positive AI-companion line ("turn the lights on for
   what you need to remember / keep in sync").
 - **License:** MIT.
-- **Visibility:** **PUBLIC** — `marcohost33-maker/Lumos` is the *only* public
-  Coworkerz repo. Treat everything here as world-readable (see §Don't).
-- **KANON anchor:** `APP-LUMOS` in `Vero/Meta/KANON/KANON_APPS.yaml`.
+- **Visibility:** **PUBLIC** — `marcohost33-maker/Lumos` is one of several public
+  Coworkerz repos. Treat everything here as world-readable (see §Don't).
+- **KANON anchor:** `APP-LUMOS` in the internal app registry (not public).
 - **Versions (dual, intentional — not a bug):** CLI `pyproject.version = 0.1.0`;
   web companion `v1.7.1`. The git-tag lineage and the package version need not
   match; do not "fix" one to the other.
