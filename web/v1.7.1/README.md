@@ -30,6 +30,8 @@ Distribution-Modell.
 - v1.6 (2026-05-19): API-Key Settings-Panel
 - v1.7 (2026-05-20): Streaming + System-Prompt-Editor + Hardening
 - v1.7.1 (2026-05-20): User-Report-Fixes (ASCII-Sanitize, Backspace-UX)
+- v1.7.1 + CSP (2026-10-16): Content-Security-Policy im `<head>` des Standalone-Bundles
+  (nur dort; die JSX-Quelle enthält keinen HTML-Kopf). Kein Funktionswechsel.
 
 Patterns extrahiert in `Vero/Recherche/Allgemein/2026-05-20_react-worker-performance-patterns.md`.
 
@@ -38,3 +40,28 @@ Patterns extrahiert in `Vero/Recherche/Allgemein/2026-05-20_react-worker-perform
 API-Key wird sanitized + lokal in `localStorage` gespeichert. CORS via
 `anthropic-dangerous-direct-browser-access: true` ist legitim für BYO-API-Key-
 Apps (Anthropic-anerkanntes Pattern).
+
+### Content-Security-Policy (seit 2026-10-16)
+
+Das Standalone-Bundle trägt eine CSP als `<meta>`-Tag:
+`default-src 'none'`, Skripte nur per SHA-256-Hash des einen Inline-Bundles,
+`connect-src https://api.anthropic.com`, `base-uri`/`form-action`/`object-src 'none'`.
+Gemessen in Chrome: Die App rendert ohne Verstoss. Blockiert und als Verstoss gemeldet werden
+ein `fetch` zu einer fremden Domain, ein Bild-Beacon und ein nachträglich eingefügtes
+Inline-Skript (ohne CSP läuft dieses Skript). Ein eingeschleustes Skript kann den Schlüssel also
+weder ausführen lassen noch über `fetch`, Bilder oder Formulare an einen fremden Server senden.
+`tests/test_web_csp.py` prüft, dass die Policy vorhanden ist und ihr Hash zu den Skript-Bytes passt.
+**Nach jedem Rebuild muss der Hash neu gesetzt werden**, sonst blockiert die Seite ihr eigenes
+Skript (der Test schlägt dann fehl).
+
+### Restrisiken (ehrlich)
+
+- **`file://` teilt den Speicher:** Wird die Datei lokal geöffnet, teilen sich in Chrome alle
+  `file://`-Seiten denselben `localStorage`. Gemessen 2026-10-16: Eine andere HTML-Datei aus einem
+  anderen Ordner las einen dort gespeicherten Wert. Ein gespeicherter Schlüssel ist damit für jede
+  andere lokal geöffnete HTML-Datei lesbar. Empfehlung: den Schlüssel nicht dauerhaft speichern
+  oder die App von einem eigenen Origin ausliefern. Die Umstellung auf eine reine Sitzungsspeicherung
+  ist offen (Code im JSX + Rebuild).
+- Browser-Erweiterungen mit Seitenzugriff können `localStorage` lesen; das verhindert keine CSP.
+- Eine Meta-CSP verhindert keine Exfiltration per Navigation (`location = ...`).
+- Den Schlüssel am besten als eigenen, eng begrenzten Key mit Ausgabenlimit anlegen.
