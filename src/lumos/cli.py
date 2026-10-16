@@ -216,7 +216,9 @@ def remind_today(ctx: click.Context, show_all: bool) -> None:
     """List reminders due before tomorrow (local time)."""
     from datetime import datetime, time, timedelta, timezone
 
-    now_local = datetime.now().astimezone()
+    from .reminders import _as_local
+
+    now_local = _as_local(datetime.now(timezone.utc))
     tomorrow_start_local = (
         (now_local + timedelta(days=1))
         .replace(hour=0, minute=0, second=0, microsecond=0)

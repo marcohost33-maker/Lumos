@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from datetime import timezone
 from pathlib import Path
 
 import pytest
@@ -35,6 +36,8 @@ def app(config: Config) -> Lumos:
 def _set_tz(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pin tz so date parsing is deterministic across CI hosts."""
     monkeypatch.setenv("TZ", "UTC")
+    # TZ + tzset only works on POSIX; pin the module's zone so Windows matches.
+    monkeypatch.setattr("lumos.reminders.LOCAL_TZ", timezone.utc)
     if hasattr(os, "tzset"):
         import time
 
