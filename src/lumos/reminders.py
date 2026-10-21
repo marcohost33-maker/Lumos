@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Iterable, Iterator, Literal, Optional
 
 from dateutil import parser as dateutil_parser
@@ -39,10 +39,23 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# Local zone for parsing and display. None = the system zone, DST-aware per date
+# (datetime.astimezone(None) is astimezone()). Tests pin it because
+# TZ + time.tzset() has no effect on Windows.
+LOCAL_TZ: tzinfo | None = None
+
+
+def _as_local(dt: datetime) -> datetime:
+    """Aware datetime -> local zone; a naive one is read as local wall time."""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=LOCAL_TZ) if LOCAL_TZ is not None else dt.astimezone()
+    return dt.astimezone(LOCAL_TZ)
+
+
 def _ensure_aware(dt: datetime) -> datetime:
     """Treat naive datetimes as local-time, then convert to UTC."""
     if dt.tzinfo is None:
-        local = dt.astimezone()  # local tz
+        local = _as_local(dt)
         return local.astimezone(timezone.utc)
     return dt.astimezone(timezone.utc)
 
@@ -51,9 +64,9 @@ def _parse_time_fragment(fragment: str | None, base: datetime) -> datetime:
     """Combine a ``HH:MM`` / ``9am`` style fragment with ``base``."""
     if not fragment:
         # Default to 09:00 local time if no time given.
-        local_base = base.astimezone()
+        local_base = _as_local(base)
         return local_base.replace(hour=9, minute=0, second=0, microsecond=0)
-    parsed = dateutil_parser.parse(fragment, default=base.astimezone())
+    parsed = dateutil_parser.parse(fragment, default=_as_local(base))
     return parsed
 
 
@@ -79,19 +92,19 @@ def parse_when(text: str, *, now: Optional[datetime] = None) -> datetime:
     # 'tomorrow [time]' / 'today [time]'
     m = _TOMORROW_RE.match(s)
     if m:
-        base = (now.astimezone() + timedelta(days=1)).replace(
+        base = (_as_local(now) + timedelta(days=1)).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
         return _ensure_aware(_parse_time_fragment(m.group(1), base))
 
     m = _TODAY_RE.match(s)
     if m:
-        base = now.astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+        base = _as_local(now).replace(hour=0, minute=0, second=0, microsecond=0)
         return _ensure_aware(_parse_time_fragment(m.group(1), base))
 
     # Fallback: dateutil
     try:
-        parsed = dateutil_parser.parse(s, default=now.astimezone())
+        parsed = dateutil_parser.parse(s, default=_as_local(now))
     except (ValueError, OverflowError) as e:
         raise ValueError(f"could not parse date: {text!r}") from e
     return _ensure_aware(parsed)
@@ -184,7 +197,7 @@ class Reminder:
     def __str__(self) -> str:
         marker = "✓" if self.is_completed else ("!" if self.is_due else " ")
         rec = f" ({self.recurring})" if self.recurring else ""
-        local = self.due_at.astimezone()
+        local = _as_local(self.due_at)
         return (
             f"[{marker}] #{self.id or '?'} {self.text}"
             f" — due {local:%Y-%m-%d %H:%M}{rec}"
