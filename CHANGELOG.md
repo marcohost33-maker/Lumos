@@ -14,6 +14,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is exactly the previous `astimezone()` behaviour, and the fixture pins it to UTC.
 
 ### Security
+- Web companion: the API key lives in `sessionStorage` only (ends with the tab). A key left in
+  `localStorage` by an earlier version is moved into the session once and removed. Measured in
+  Chromium under `file://`: another local HTML file in a new tab no longer reads the key (before:
+  it did). `tests/test_web_key_storage.py` guards JSX and bundle; CSP hash re-pinned.
 - Web companion: hash-based Content-Security-Policy in `Lumos-v1.7.1-standalone.html`
   (`default-src 'none'`, script by SHA-256, `connect-src https://api.anthropic.com` only).
   Measured in Chrome: renders with no violation; foreign `fetch`, image beacon and injected

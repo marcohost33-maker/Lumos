@@ -2,7 +2,7 @@
 
 Diese Variante ist eine **Web-Reinkarnation** von Lumos — ein Chat-/KI-Begleiter
 als Single-File React-App, der Anthropic API direkt aus dem Browser anspricht
-(BYO API-Key in localStorage).
+(BYO API-Key, nur für die Sitzung in sessionStorage).
 
 Sie ist **nicht** ein Replacement für das Python-Lumos im Hauptverzeichnis
 (`src/`, `pyproject.toml`) — beide existieren parallel mit unterschiedlichem
@@ -32,12 +32,21 @@ Distribution-Modell.
 - v1.7.1 (2026-05-20): User-Report-Fixes (ASCII-Sanitize, Backspace-UX)
 - v1.7.1 + CSP (2026-10-16): Content-Security-Policy im `<head>` des Standalone-Bundles
   (nur dort; die JSX-Quelle enthält keinen HTML-Kopf). Kein Funktionswechsel.
+- v1.7.1 + Sitzungsschlüssel (2026-10-21): API-Key nur noch in `sessionStorage`; ein alter Wert aus
+  `localStorage` wird beim ersten Laden einmalig übernommen und dort gelöscht. Das Bundle wurde
+  gezielt an den zwei Speicherfunktionen und am Hinweistext gepatcht (im Repo gibt es keine
+  Build-Kette); die JSX-Quelle trägt dieselbe Änderung, der CSP-Hash ist neu gesetzt.
 
 Patterns extrahiert in `Vero/Recherche/Allgemein/2026-05-20_react-worker-performance-patterns.md`.
 
 ## Sicherheit
 
-API-Key wird sanitized + lokal in `localStorage` gespeichert. CORS via
+API-Key wird sanitized und nur für die Sitzung in `sessionStorage` gehalten (endet mit dem Tab;
+nach dem Schliessen muss er neu eingegeben werden). Gemessen 2026-10-21 in Chromium unter `file://`:
+Ein alter Schlüssel aus `localStorage` landet nach dem Laden in `sessionStorage`, `localStorage` ist
+danach leer, ein Reload behält ihn, und eine andere lokale HTML-Datei in einem neuen Tab liest
+nichts mehr (der alte Stand: sie las den Schlüssel). `tests/test_web_key_storage.py` prüft JSX und
+Bundle darauf, dass der Schlüssel nie mehr nach `localStorage` geschrieben wird. CORS via
 `anthropic-dangerous-direct-browser-access: true` ist legitim für BYO-API-Key-
 Apps (Anthropic-anerkanntes Pattern).
 
@@ -56,12 +65,13 @@ Skript (der Test schlägt dann fehl).
 
 ### Restrisiken (ehrlich)
 
-- **`file://` teilt den Speicher:** Wird die Datei lokal geöffnet, teilen sich in Chrome alle
-  `file://`-Seiten denselben `localStorage`. Gemessen 2026-10-16: Eine andere HTML-Datei aus einem
-  anderen Ordner las einen dort gespeicherten Wert. Ein gespeicherter Schlüssel ist damit für jede
-  andere lokal geöffnete HTML-Datei lesbar. Empfehlung: den Schlüssel nicht dauerhaft speichern
-  oder die App von einem eigenen Origin ausliefern. Die Umstellung auf eine reine Sitzungsspeicherung
-  ist offen (Code im JSX + Rebuild).
+- **`file://` teilt den Speicher:** In Chrome teilen sich alle `file://`-Seiten denselben
+  `localStorage` (gemessen 2026-10-16). Deshalb liegt der Schlüssel seit 2026-10-21 nur noch in
+  `sessionStorage`, das an den Tab gebunden ist. Rest: Navigiert derselbe Tab zu einer anderen
+  lokalen HTML-Datei, kann diese die Sitzung desselben Tabs lesen. Modell-, Prompt- und
+  Temperatur-Einstellungen bleiben bewusst in `localStorage` (keine Geheimnisse).
+- Eine Option "Schlüssel dauerhaft merken" gibt es nicht; sie bräuchte UI-Code im Bundle und
+  würde das obige Risiko für diesen Nutzer zurückbringen.
 - Browser-Erweiterungen mit Seitenzugriff können `localStorage` lesen; das verhindert keine CSP.
 - Eine Meta-CSP verhindert keine Exfiltration per Navigation (`location = ...`).
 - Den Schlüssel am besten als eigenen, eng begrenzten Key mit Ausgabenlimit anlegen.

@@ -428,19 +428,33 @@ function sanitizeApiKey(raw) {
   }
   return out;
 }
+// The key lives in sessionStorage only: under file:// Chrome shares localStorage across all
+// local pages, so a persisted key is readable by any other local HTML file (measured 2026-10-16).
+// A key left in localStorage by an older version is moved into the session once and removed.
 function loadApiKey() {
   try {
-    const v = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY_API)) || '';
-    return sanitizeApiKey(v);
+    if (typeof sessionStorage === 'undefined') return '';
+    let v = sessionStorage.getItem(STORAGE_KEY_API);
+    if (v === null && typeof localStorage !== 'undefined') {
+      let legacy = localStorage.getItem(STORAGE_KEY_API);
+      if (legacy !== null) {
+        localStorage.removeItem(STORAGE_KEY_API);
+        legacy = sanitizeApiKey(legacy);
+        if (legacy) sessionStorage.setItem(STORAGE_KEY_API, legacy);
+        v = legacy;
+      }
+    }
+    return sanitizeApiKey(v || '');
   }
   catch { return ''; }
 }
 function saveApiKey(k) {
+  try { if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY_API); } catch {}
   try {
-    if (typeof localStorage === 'undefined') return;
+    if (typeof sessionStorage === 'undefined') return;
     const clean = sanitizeApiKey(k);
-    if (clean) localStorage.setItem(STORAGE_KEY_API, clean);
-    else localStorage.removeItem(STORAGE_KEY_API);
+    if (clean) sessionStorage.setItem(STORAGE_KEY_API, clean);
+    else sessionStorage.removeItem(STORAGE_KEY_API);
   } catch {}
 }
 function loadModel() {
@@ -673,7 +687,7 @@ const SettingsPanel = memo(function SettingsPanel({
           <div style={{
             fontSize: 9, color: 'rgba(223,202,125,.4)', marginTop: 6, lineHeight: 1.6,
           }}>
-            Lokal im Browser (localStorage). Key holen:<br/>
+            Nur für diese Sitzung (sessionStorage, endet mit dem Tab). Key holen:<br/>
             console.anthropic.com → Settings → API Keys
             {hasKey && trimmed === '' && (
               <span style={{ color: 'rgba(200,140,100,.7)' }}><br/>Leer-Speichern löscht den Schlüssel.</span>
