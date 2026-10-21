@@ -33,7 +33,9 @@ Distribution-Modell.
 - v1.7.1 + CSP (2026-10-16): Content-Security-Policy im `<head>` des Standalone-Bundles
   (nur dort; die JSX-Quelle enthält keinen HTML-Kopf). Kein Funktionswechsel.
 - v1.7.1 + Sitzungsschlüssel (2026-10-21): API-Key nur noch in `sessionStorage`; ein alter Wert aus
-  `localStorage` wird beim ersten Laden einmalig übernommen und dort gelöscht. Das Bundle wurde
+  `localStorage` wird beim ersten Laden einmalig übernommen und dort gelöscht (bei jedem Laden,
+  auch wenn die Sitzung schon einen Schlüssel hat). Die Vorgänger-Quelle v1.7 trägt dieselbe
+  Speicherregel. Das Bundle wurde
   gezielt an den zwei Speicherfunktionen und am Hinweistext gepatcht (im Repo gibt es keine
   Build-Kette); die JSX-Quelle trägt dieselbe Änderung, der CSP-Hash ist neu gesetzt.
 

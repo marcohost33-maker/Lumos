@@ -435,13 +435,15 @@ function loadApiKey() {
   try {
     if (typeof sessionStorage === 'undefined') return '';
     let v = sessionStorage.getItem(STORAGE_KEY_API);
-    if (v === null && typeof localStorage !== 'undefined') {
+    if (typeof localStorage !== 'undefined') {
       let legacy = localStorage.getItem(STORAGE_KEY_API);
       if (legacy !== null) {
         localStorage.removeItem(STORAGE_KEY_API);
-        legacy = sanitizeApiKey(legacy);
-        if (legacy) sessionStorage.setItem(STORAGE_KEY_API, legacy);
-        v = legacy;
+        if (v === null) {
+          legacy = sanitizeApiKey(legacy);
+          if (legacy) sessionStorage.setItem(STORAGE_KEY_API, legacy);
+          v = legacy;
+        }
       }
     }
     return sanitizeApiKey(v || '');

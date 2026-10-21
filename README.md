@@ -90,7 +90,9 @@ for r in app.reminders.due():
 Next to the Python package, the repository contains a separate **web
 companion** under `web/v1.7.1/`: a single-file React chat app that talks to
 the Anthropic API directly from the browser. You bring your own API key; it
-is stored in the browser's `localStorage`.
+is kept in the browser's `sessionStorage` for the current tab only and is
+never written to `localStorage` (a copy left there by an older version is
+removed on the next load).
 
 - `web/v1.7.1/Lumos-v1.7.1-standalone.html` — prebuilt bundle, open it
   directly in a browser.

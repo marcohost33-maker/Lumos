@@ -22,14 +22,23 @@ def _source_and_name(filename: str) -> tuple[str, str]:
     return text, m.group(1)
 
 
-@pytest.mark.parametrize("filename", ["lumos_v1.7.1_2026-05-20.jsx", "Lumos-v1.7.1-standalone.html"])
+FILES = ["lumos_v1.7.1_2026-05-20.jsx", "lumos_v1.7_2026-05-20.jsx", "Lumos-v1.7.1-standalone.html"]
+
+
+@pytest.mark.parametrize("filename", FILES)
 def test_api_key_is_never_written_to_local_storage(filename: str) -> None:
+    # Every write of the key must go to sessionStorage by name: an alias such as
+    # `S.setItem(name, v)` or an index write `localStorage[name] = v` would slip
+    # past a check that only looks for `localStorage.setItem`.
     text, name = _source_and_name(filename)
-    writes = re.findall(r"localStorage\.setItem\(\s*" + re.escape(name) + r"\s*,", text)
-    assert writes == [], f"{filename}: API key written to localStorage"
+    n = re.escape(name)
+    receivers = re.findall(r"([A-Za-z_$][\w$.]*)\.setItem\(\s*" + n + r"\s*,", text)
+    assert receivers, f"{filename}: no write of the API key found"
+    assert set(receivers) == {"sessionStorage"}, f"{filename}: key written via {sorted(set(receivers))}"
+    assert not re.search(r"\[\s*" + n + r"\s*\]\s*=(?!=)", text), f"{filename}: index write of the key"
 
 
-@pytest.mark.parametrize("filename", ["lumos_v1.7.1_2026-05-20.jsx", "Lumos-v1.7.1-standalone.html"])
+@pytest.mark.parametrize("filename", FILES)
 def test_api_key_is_kept_in_session_storage_and_legacy_copy_removed(filename: str) -> None:
     text, name = _source_and_name(filename)
     assert re.search(r"sessionStorage\.setItem\(\s*" + re.escape(name) + r"\s*,", text)
