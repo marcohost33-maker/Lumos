@@ -13,6 +13,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   now resolves the local zone through `LOCAL_TZ` / `_as_local()`; `None` (the default)
   is exactly the previous `astimezone()` behaviour, and the fixture pins it to UTC.
 
+### Security
+- Web companion: hash-based Content-Security-Policy in `Lumos-v1.7.1-standalone.html`
+  (`default-src 'none'`, script by SHA-256, `connect-src https://api.anthropic.com` only).
+  Measured in Chrome: renders with no violation; foreign `fetch`, image beacon and injected
+  inline script are blocked. `tests/test_web_csp.py` guards hash and directives.
+- Web companion README documents the residual risks, including a measured one: Chrome shares
+  `localStorage` across all `file://` pages, so a stored key is readable by any other local
+  HTML file.
+
 ## [1.7.2] - 2026-05-28
 
 CI/Security hardening pass — no user-facing change.
