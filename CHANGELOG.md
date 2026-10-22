@@ -7,6 +7,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- Dependabot configuration was invalid: the groups `npm-security` and `actions-security` had only
+  `applies-to` and no match rule, which GitHub rejects ("did not match one or more of the
+  required schemas", shown by the `.github/dependabot.yml` check once the file changed). Both
+  now match `"*"`. Likely why no Dependabot PRs appeared, e.g. for the Node 20 actions.
 - Tests are timezone-independent on every OS. The `_set_tz` fixture relied on
   `TZ` + `time.tzset()`, which does not exist on Windows, so five reminder tests failed on
   any non-UTC Windows machine (measured: Europe/Zurich, 2 h offset). `lumos.reminders`

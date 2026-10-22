@@ -40,6 +40,8 @@ updates:
           - "patch"
       npm-security:
         applies-to: security-updates
+        patterns:
+          - "*"   # a group needs a match rule; applies-to alone is rejected
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -99,6 +101,8 @@ updates:
           - "patch"
       actions-security:
         applies-to: security-updates
+        patterns:
+          - "*"   # a group needs a match rule; applies-to alone is rejected
     commit-message:
       prefix: "ci"
       include: "scope"
