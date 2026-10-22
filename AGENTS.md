@@ -29,7 +29,7 @@ priority_when_in_conflict: 1
      This is the **primary distributable package**.
   2. **React web companion** under `web/v1.7.1/` — a single-file React
      chat/AI-companion that calls the Anthropic API directly from the browser
-     (BYO API-key in `localStorage`). Distributed as **prebuilt standalone
+     (BYO API-key in `sessionStorage`, session only). Distributed as **prebuilt standalone
      HTML + JSX source — there is no npm package, no `package.json`, no build
      step.** Different distribution model on purpose.
 - **Purpose:** Lumos is the positive AI-companion line ("turn the lights on for
@@ -59,7 +59,7 @@ tests/                      # pytest suite — no network required
   └── test_{cli,config,drive,facade,reminders,storage}.py
 web/v1.7.1/                 # React companion (single-file; NO build)
   ├── Lumos-v1.7.1-standalone.html   # prebuilt bundle (~230 KB)
-  ├── lumos_v1.7.1_2026-05-20.jsx    # source (~95 KB)
+  ├── lumos_v1.7.1_2026-10-22.jsx    # source (~95 KB)
   ├── lumos_v1.7_2026-05-20.jsx      # predecessor source
   └── README.md
 .github/workflows/
@@ -93,7 +93,7 @@ matrix. All four are **required status checks** on `main`.
 ```text
 # There is NO npm install / build step. The companion is shipped as:
 #   web/v1.7.1/Lumos-v1.7.1-standalone.html   (open directly in a browser)
-#   web/v1.7.1/lumos_v1.7.1_2026-05-20.jsx     (single-file React source)
+#   web/v1.7.1/lumos_v1.7.1_2026-10-22.jsx     (single-file React source)
 # Edit the .jsx source, regenerate the standalone HTML, bump the dated filename.
 ```
 
@@ -105,7 +105,8 @@ matrix. All four are **required status checks** on `main`.
    `pytest (Python 3.9|3.10|3.11|3.12)` checks green. No direct pushes; PRs only.
 2. **PUBLIC repo — no secrets, ever.** No API keys, OAuth client secrets,
    `~/.lumos/token.json`, or personal data in code, tests, fixtures, or logs.
-   The web companion is BYO-key (`localStorage`) by design — never hard-code one.
+   The web companion is BYO-key (`sessionStorage`, never `localStorage` — see
+   `tests/test_web_key_storage.py`) by design — never hard-code one.
 3. **Don't break the dual lineage.** The Python CLI and the React companion are
    separate deliverables with separate versions. Don't merge them, don't make
    one depend on the other, don't "sync" their version numbers.

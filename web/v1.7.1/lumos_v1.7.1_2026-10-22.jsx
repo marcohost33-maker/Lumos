@@ -428,19 +428,35 @@ function sanitizeApiKey(raw) {
   }
   return out;
 }
+// The key lives in sessionStorage only: under file:// Chrome shares localStorage across all
+// local pages, so a persisted key is readable by any other local HTML file (measured 2026-10-16).
+// A key left in localStorage by an older version is moved into the session once and removed.
+// If the session refuses the copy (quota, SecurityError under file://) the key still serves
+// this page from memory; it is never written back to localStorage.
 function loadApiKey() {
+  let v = null;
+  try { if (typeof sessionStorage !== 'undefined') v = sessionStorage.getItem(STORAGE_KEY_API); } catch {}
   try {
-    const v = (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY_API)) || '';
-    return sanitizeApiKey(v);
-  }
-  catch { return ''; }
+    if (typeof localStorage !== 'undefined') {
+      const legacy = localStorage.getItem(STORAGE_KEY_API);
+      if (legacy !== null) {
+        localStorage.removeItem(STORAGE_KEY_API);
+        if (!v) {
+          v = sanitizeApiKey(legacy);
+          try { if (v) sessionStorage.setItem(STORAGE_KEY_API, v); } catch {}
+        }
+      }
+    }
+  } catch {}
+  return sanitizeApiKey(v || '');
 }
 function saveApiKey(k) {
+  try { if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY_API); } catch {}
   try {
-    if (typeof localStorage === 'undefined') return;
+    if (typeof sessionStorage === 'undefined') return;
     const clean = sanitizeApiKey(k);
-    if (clean) localStorage.setItem(STORAGE_KEY_API, clean);
-    else localStorage.removeItem(STORAGE_KEY_API);
+    if (clean) sessionStorage.setItem(STORAGE_KEY_API, clean);
+    else sessionStorage.removeItem(STORAGE_KEY_API);
   } catch {}
 }
 function loadModel() {
@@ -673,7 +689,7 @@ const SettingsPanel = memo(function SettingsPanel({
           <div style={{
             fontSize: 9, color: 'rgba(223,202,125,.4)', marginTop: 6, lineHeight: 1.6,
           }}>
-            Lokal im Browser (localStorage). Key holen:<br/>
+            Nur für diese Sitzung (sessionStorage, endet mit dem Tab). Key holen:<br/>
             console.anthropic.com → Settings → API Keys
             {hasKey && trimmed === '' && (
               <span style={{ color: 'rgba(200,140,100,.7)' }}><br/>Leer-Speichern löscht den Schlüssel.</span>

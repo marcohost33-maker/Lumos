@@ -405,15 +405,31 @@ const Toast = memo(function Toast({ toast }) {
 // ═══════════════════════════════════════════════════════════════════
 // v1.6 — API-KEY HELPERS
 // ═══════════════════════════════════════════════════════════════════
+// The key lives in sessionStorage only (I1016a-17, same as v1.7.1); a legacy
+// localStorage copy is moved over once and always removed.
 function loadApiKey() {
-  try { return (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEY_API)) || ''; }
-  catch { return ''; }
+  let v = null;
+  try { if (typeof sessionStorage !== 'undefined') v = sessionStorage.getItem(STORAGE_KEY_API); } catch {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const legacy = localStorage.getItem(STORAGE_KEY_API);
+      if (legacy !== null) {
+        localStorage.removeItem(STORAGE_KEY_API);
+        if (!v) {
+          v = legacy;
+          try { if (v) sessionStorage.setItem(STORAGE_KEY_API, v); } catch {}
+        }
+      }
+    }
+  } catch {}
+  return v || '';
 }
 function saveApiKey(k) {
+  try { if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY_API); } catch {}
   try {
-    if (typeof localStorage === 'undefined') return;
-    if (k) localStorage.setItem(STORAGE_KEY_API, k);
-    else localStorage.removeItem(STORAGE_KEY_API);
+    if (typeof sessionStorage === 'undefined') return;
+    if (k) sessionStorage.setItem(STORAGE_KEY_API, k);
+    else sessionStorage.removeItem(STORAGE_KEY_API);
   } catch {}
 }
 function loadModel() {
