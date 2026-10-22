@@ -20,6 +20,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `file://`: another local HTML file in a new tab no longer reads the key (before: it did).
   `tests/test_web_key_storage.py` guards both JSX sources and the bundle (any `setItem` of the key
   must go to `sessionStorage`, no index write); CSP hash re-pinned.
+- Web companion: a storage error no longer loses the key. If the session refuses the copied
+  legacy key (quota, `SecurityError`), the key still serves the page from memory; if reading
+  `localStorage` throws, a valid session key is kept (before: both returned an empty key); an
+  empty session value takes the legacy key. `tests/test_web_key_storage_dynamic.py` executes
+  the storage functions of both JSX sources and the minified bundle in Node against fake
+  storages (ten paths; five of them fail on the previous code). The source is renamed to
+  `lumos_v1.7.1_2026-10-22.jsx` (dated-filename convention).
 - Web companion: hash-based Content-Security-Policy in `Lumos-v1.7.1-standalone.html`
   (`default-src 'none'`, script by SHA-256, `connect-src https://api.anthropic.com` only).
   Measured in Chrome: renders with no violation; foreign `fetch`, image beacon and injected

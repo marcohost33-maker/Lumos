@@ -431,24 +431,24 @@ function sanitizeApiKey(raw) {
 // The key lives in sessionStorage only: under file:// Chrome shares localStorage across all
 // local pages, so a persisted key is readable by any other local HTML file (measured 2026-10-16).
 // A key left in localStorage by an older version is moved into the session once and removed.
+// If the session refuses the copy (quota, SecurityError under file://) the key still serves
+// this page from memory; it is never written back to localStorage.
 function loadApiKey() {
+  let v = null;
+  try { if (typeof sessionStorage !== 'undefined') v = sessionStorage.getItem(STORAGE_KEY_API); } catch {}
   try {
-    if (typeof sessionStorage === 'undefined') return '';
-    let v = sessionStorage.getItem(STORAGE_KEY_API);
     if (typeof localStorage !== 'undefined') {
-      let legacy = localStorage.getItem(STORAGE_KEY_API);
+      const legacy = localStorage.getItem(STORAGE_KEY_API);
       if (legacy !== null) {
         localStorage.removeItem(STORAGE_KEY_API);
-        if (v === null) {
-          legacy = sanitizeApiKey(legacy);
-          if (legacy) sessionStorage.setItem(STORAGE_KEY_API, legacy);
-          v = legacy;
+        if (!v) {
+          v = sanitizeApiKey(legacy);
+          try { if (v) sessionStorage.setItem(STORAGE_KEY_API, v); } catch {}
         }
       }
     }
-    return sanitizeApiKey(v || '');
-  }
-  catch { return ''; }
+  } catch {}
+  return sanitizeApiKey(v || '');
 }
 function saveApiKey(k) {
   try { if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY_API); } catch {}

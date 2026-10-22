@@ -96,7 +96,7 @@ removed on the next load).
 
 - `web/v1.7.1/Lumos-v1.7.1-standalone.html` — prebuilt bundle, open it
   directly in a browser.
-- `web/v1.7.1/lumos_v1.7.1_2026-05-20.jsx` — single-file React source.
+- `web/v1.7.1/lumos_v1.7.1_2026-10-22.jsx` — single-file React source.
 - There is no npm package, no `package.json` and no build step.
 
 The web companion and the Python package are independent deliverables; one

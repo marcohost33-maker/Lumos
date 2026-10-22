@@ -22,7 +22,7 @@ def _source_and_name(filename: str) -> tuple[str, str]:
     return text, m.group(1)
 
 
-FILES = ["lumos_v1.7.1_2026-05-20.jsx", "lumos_v1.7_2026-05-20.jsx", "Lumos-v1.7.1-standalone.html"]
+FILES = ["lumos_v1.7.1_2026-10-22.jsx", "lumos_v1.7_2026-05-20.jsx", "Lumos-v1.7.1-standalone.html"]
 
 
 @pytest.mark.parametrize("filename", FILES)

@@ -59,7 +59,7 @@ tests/                      # pytest suite — no network required
   └── test_{cli,config,drive,facade,reminders,storage}.py
 web/v1.7.1/                 # React companion (single-file; NO build)
   ├── Lumos-v1.7.1-standalone.html   # prebuilt bundle (~230 KB)
-  ├── lumos_v1.7.1_2026-05-20.jsx    # source (~95 KB)
+  ├── lumos_v1.7.1_2026-10-22.jsx    # source (~95 KB)
   ├── lumos_v1.7_2026-05-20.jsx      # predecessor source
   └── README.md
 .github/workflows/
@@ -93,7 +93,7 @@ matrix. All four are **required status checks** on `main`.
 ```text
 # There is NO npm install / build step. The companion is shipped as:
 #   web/v1.7.1/Lumos-v1.7.1-standalone.html   (open directly in a browser)
-#   web/v1.7.1/lumos_v1.7.1_2026-05-20.jsx     (single-file React source)
+#   web/v1.7.1/lumos_v1.7.1_2026-10-22.jsx     (single-file React source)
 # Edit the .jsx source, regenerate the standalone HTML, bump the dated filename.
 ```
 
