@@ -51,6 +51,7 @@ jobs:
     # session-only key). LUMOS_REQUIRE_BROWSER makes a missing browser fail, not skip.
     name: web key storage (Chromium, file://)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read   # checkout only
     env:
@@ -70,7 +71,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e '.[dev]'
           pip install --require-hashes --only-binary :all: -r requirements-web-browser.txt
-          python -m playwright install --with-deps chromium
+          # Full Chromium: the test runs channel "chromium" (new headless), not the shell.
+          python -m playwright install --with-deps --no-shell chromium
+
+      - name: Record the browser under test (provenance; the download has no checksum)
+        run: |
+          python - <<'PY'
+          import hashlib
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as p:
+              exe = p.chromium.executable_path
+              b = p.chromium.launch(channel="chromium")
+              print("chromium", b.version, exe)
+              b.close()
+          print("sha256", hashlib.sha256(open(exe, "rb").read()).hexdigest())
+          PY
 
       - name: Run the browser gate
         run: |

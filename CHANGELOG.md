@@ -30,14 +30,18 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Web companion: browser gate for the key storage. `tests/test_web_key_storage_browser.py` loads
   the shipped bundle in Chromium under `file://` (network blocked) and watches the key three ways:
   a spy on `Storage.prototype`, a second tab that receives every `localStorage` `storage` event
-  (index writes included), and a scan of the final contents. Ten cases (legacy/session/both/empty
-  seeds, either storage denied, key entered in the settings dialog, empty save, new tab and
-  `noopener` popup, residual risks). Measured: 10/10 on this bundle, 9/10 fail on the bundle from
+  (index writes included, with a sentinel barrier), and a scan of the final contents. Full Chromium
+  in the new headless mode; waits are web-first assertions, no fixed sleeps. Twelve cases
+  (legacy/session/both/empty seeds, one storage denied, key entered in the settings dialog, empty
+  save, new tab and `noopener` popup, residual risks, and the real "block site data" profile
+  setting, under which both storages throw and a legacy key waits on disk until storage is allowed
+  again). Measured with Chromium 141: 12/12 on this bundle (5 runs), 11/12 fail on the bundle from
   before the session-only change; four write mutants (computed name, computed alias,
   `Storage.prototype.setItem.call`, index write) all fail it, while the static guard catches only
-  the index write. New CI job `web-browser` (Playwright hash-pinned in
-  `requirements-web-browser.txt`, `LUMOS_REQUIRE_BROWSER=1` so it cannot skip); the four required
-  pytest jobs skip the test.
+  the index write. New CI job `web-browser` (Playwright 1.64.0 hash-pinned in
+  `requirements-web-browser.txt`, browser SHA-256 logged as provenance, `LUMOS_REQUIRE_BROWSER=1`
+  so it cannot skip, 15-minute timeout); the four required pytest jobs skip the test. Dependabot
+  now watches pip (7-day cooldown) so the pin does not go stale.
 - Web companion: hash-based Content-Security-Policy in `Lumos-v1.7.1-standalone.html`
   (`default-src 'none'`, script by SHA-256, `connect-src https://api.anthropic.com` only).
   Measured in Chrome: renders with no violation; foreign `fetch`, image beacon and injected

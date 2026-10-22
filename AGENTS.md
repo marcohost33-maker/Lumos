@@ -103,8 +103,8 @@ no network). It skips without Playwright; the `web-browser` CI job sets
 `LUMOS_REQUIRE_BROWSER=1` so it cannot skip there:
 
 ```bash
-pip install --require-hashes --only-binary :all: -r requirements-web-browser.txt
-python -m playwright install chromium
+pip install --require-hashes --only-binary :all: -r requirements-web-browser.txt  # Python >= 3.10
+python -m playwright install --no-shell chromium   # full Chromium, the test uses channel "chromium"
 LUMOS_REQUIRE_BROWSER=1 pytest tests/test_web_key_storage_browser.py -v
 ```
 
