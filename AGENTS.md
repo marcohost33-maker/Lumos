@@ -64,6 +64,7 @@ web/v1.7.1/                 # React companion (single-file; NO build)
   └── README.md
 .github/workflows/
   ├── ci.yml                # PRIMARY CI — pytest on Python 3.9–3.12 (required)
+  │                         #   + web-browser job: key-storage gate in Chromium (not required)
   ├── encoding-guard.yml    # rejects invalid UTF-8 under .github/
   └── zizmor.yml            # workflow security audit (SHA-pinned, gates merge)
 ```
@@ -95,6 +96,16 @@ matrix. All four are **required status checks** on `main`.
 #   web/v1.7.1/Lumos-v1.7.1-standalone.html   (open directly in a browser)
 #   web/v1.7.1/lumos_v1.7.1_2026-10-22.jsx     (single-file React source)
 # Edit the .jsx source, regenerate the standalone HTML, bump the dated filename.
+```
+
+After touching the bundle's key storage, run the browser gate (real Chromium, `file://`,
+no network). It skips without Playwright; the `web-browser` CI job sets
+`LUMOS_REQUIRE_BROWSER=1` so it cannot skip there:
+
+```bash
+pip install --require-hashes --only-binary :all: -r requirements-web-browser.txt
+python -m playwright install chromium
+LUMOS_REQUIRE_BROWSER=1 pytest tests/test_web_key_storage_browser.py -v
 ```
 
 `encoding-guard.yml` and `zizmor.yml` only react to changes under `.github/`.

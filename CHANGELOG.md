@@ -27,6 +27,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the storage functions of both JSX sources and the minified bundle in Node against fake
   storages (ten paths; five of them fail on the previous code). The source is renamed to
   `lumos_v1.7.1_2026-10-22.jsx` (dated-filename convention).
+- Web companion: browser gate for the key storage. `tests/test_web_key_storage_browser.py` loads
+  the shipped bundle in Chromium under `file://` (network blocked) and watches the key three ways:
+  a spy on `Storage.prototype`, a second tab that receives every `localStorage` `storage` event
+  (index writes included), and a scan of the final contents. Ten cases (legacy/session/both/empty
+  seeds, either storage denied, key entered in the settings dialog, empty save, new tab and
+  `noopener` popup, residual risks). Measured: 10/10 on this bundle, 9/10 fail on the bundle from
+  before the session-only change; four write mutants (computed name, computed alias,
+  `Storage.prototype.setItem.call`, index write) all fail it, while the static guard catches only
+  the index write. New CI job `web-browser` (Playwright hash-pinned in
+  `requirements-web-browser.txt`, `LUMOS_REQUIRE_BROWSER=1` so it cannot skip); the four required
+  pytest jobs skip the test.
 - Web companion: hash-based Content-Security-Policy in `Lumos-v1.7.1-standalone.html`
   (`default-src 'none'`, script by SHA-256, `connect-src https://api.anthropic.com` only).
   Measured in Chrome: renders with no violation; foreign `fetch`, image beacon and injected
