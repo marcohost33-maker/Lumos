@@ -57,8 +57,24 @@ nichts mehr (der alte Stand: sie las den Schlüssel). `tests/test_web_key_storag
 Bundle darauf, dass der Schlüssel nie mehr nach `localStorage` geschrieben wird;
 `tests/test_web_key_storage_dynamic.py` führt die Speicherfunktionen aller drei Dateien in Node
 gegen Fake-Speicher aus (nur alt, nur Sitzung, beide, leerer Sitzungswert, Lese-/Schreibfehler,
-keine `sessionStorage`, Speichern und Neuladen). Nicht abgedeckt, weil Browser-Semantik: eine
-zweite lokale Datei im selben Tab und die Kopie der Sitzung in ein Popup (siehe Restrisiken). CORS via
+keine `sessionStorage`, Speichern und Neuladen). `tests/test_web_key_storage_browser.py` lädt das
+ausgelieferte Bundle in Chromium (voller Browser im neuen Headless-Modus) unter `file://` (Netz
+gesperrt) und beobachtet den Schlüssel dreifach: Spion auf `Storage.prototype`, ein zweiter Tab derselben
+`file://`-Origin, der jedes `storage`-Ereignis von `localStorage` sieht (auch Index-Schreibweisen ohne
+`setItem`; eine Sentinel-Barriere stellt sicher, dass alle Ereignisse angekommen sind), und ein Scan des
+Endzustands. Gewartet wird nur auf das, was die App zeigt (Menüpunkt `Einstellungen` ohne ⚠), nie
+mit festen Pausen. Fälle: nur alt, nur Sitzung, beide, leerer Sitzungswert, nur `localStorage` bzw.
+nur `sessionStorage` verweigert (simulierter `SecurityError`), Eingabe im Einstellungsdialog und
+Neuladen, Leer-Speichern, neuer Tab und `noopener`-Popup (lesen nichts), dazu CSP-Verstösse und
+Seitenfehler (keine), sowie **echt blockierte Websitedaten** (Chrome-Profileinstellung „Cookies und
+Websitedaten blockieren"): Unter `file://` werfen dann beide Speicher `SecurityError`; ein eingegebener
+Schlüssel lebt nur im Speicher der Seite und erreicht die Platte nicht. Gemessen 2026-10-22
+(Chromium 141, Playwright 1.56, 5 Läufe stabil): 12/12 grün; das Bundle von `main` (vor der
+Umstellung) 11/12 rot. Vier Mutanten, die den Schlüssel zusätzlich nach `localStorage` schreiben
+(berechneter Name, Alias `window['local'+'Storage']`, `Storage.prototype.setItem.call`,
+Index-Schreibweise), werden alle rot; die statische Prüfung erkennt nur die Index-Schreibweise. Der
+CI-Job `web-browser` führt den Test mit hash-gebundenem Playwright aus und darf ihn nicht überspringen.
+CORS via
 `anthropic-dangerous-direct-browser-access: true` ist legitim für BYO-API-Key-
 Apps (Anthropic-anerkanntes Pattern).
 
@@ -80,12 +96,18 @@ Skript (der Test schlägt dann fehl).
 - **`file://` teilt den Speicher:** In Chrome teilen sich alle `file://`-Seiten denselben
   `localStorage` (gemessen 2026-10-16). Deshalb liegt der Schlüssel seit 2026-10-21 nur noch in
   `sessionStorage`, das an den Tab gebunden ist. Rest: Navigiert derselbe Tab zu einer anderen
-  lokalen HTML-Datei, kann diese die Sitzung desselben Tabs lesen. Modell-, Prompt- und
+  lokalen HTML-Datei, kann diese die Sitzung desselben Tabs lesen (gemessen 2026-10-22). Modell-, Prompt- und
   Temperatur-Einstellungen bleiben bewusst in `localStorage` (keine Geheimnisse).
 - `sessionStorage` ist kein Geheimnisspeicher: Ein Fenster, das aus diesem Tab mit Opener
-  geöffnet wird, erhält eine Kopie der Sitzung (Spezifikation, MDN). Wirft der Browser beim
-  Zugriff unter `file://` einen `SecurityError`, lebt der Schlüssel nur im Speicher der Seite und
-  ist nach dem Neuladen weg. Eine Variante nur im Speicher oder eine eigene, isolierte Origin
+  geöffnet wird, erhält eine Kopie der Sitzung (Spezifikation, MDN; gemessen 2026-10-22, mit
+  `noopener` keine Kopie). Die App selbst öffnet keine Fenster (einziger Link: der Download-Anker
+  des Exports). Beide Restrisiken hält `test_residual_risks_documented_in_the_readme_still_hold`
+  fest; ändert ein Browser das Verhalten, wird dieser Text angepasst, nicht der Test. Wirft der Browser beim
+  Zugriff unter `file://` einen `SecurityError` (etwa bei blockierten Websitedaten), lebt der
+  Schlüssel nur im Speicher der Seite und ist nach dem Neuladen weg. Ein alter Schlüssel, der aus einer
+  früheren Version noch in `localStorage` liegt, bleibt dann auf der Platte, weil die Seite ihn weder
+  lesen noch löschen kann; das nächste Laden mit erlaubten Websitedaten übernimmt und löscht ihn
+  (gemessen 2026-10-22). Eine Variante nur im Speicher oder eine eigene, isolierte Origin
   wäre die nächste Stufe (Cross-Family-Hinweis LUM-18-02, 2026-10-21).
 - Eine Option "Schlüssel dauerhaft merken" gibt es nicht; sie bräuchte UI-Code im Bundle und
   würde das obige Risiko für diesen Nutzer zurückbringen.

@@ -40,12 +40,47 @@ updates:
           - "patch"
       npm-security:
         applies-to: security-updates
+        patterns:
+          - "*"   # a group needs a match rule; applies-to alone is rejected
     commit-message:
       prefix: "deps"
       include: "scope"
     labels:
       - "dependencies"
       - "npm"
+
+  # pip: keeps the hash-pinned Playwright of the browser gate (requirements-web-browser.txt)
+  # current; Dependabot rewrites pins and hashes together. `allow` keeps it away from the
+  # package's own ranges in pyproject.toml (requires-python >= 3.9 must stay intact).
+  - package-ecosystem: "pip"
+    directory: "/"
+    allow:
+      - dependency-name: "playwright"
+      - dependency-name: "greenlet"
+      - dependency-name: "pyee"
+      - dependency-name: "typing-extensions"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Zurich"
+    # Cooldown: ignore releases younger than N days. (zizmor: dependabot-cooldown)
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    groups:
+      web-browser-gate:
+        patterns:
+          - "playwright"
+          - "greenlet"
+          - "pyee"
+          - "typing-extensions"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "python"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -66,6 +101,8 @@ updates:
           - "patch"
       actions-security:
         applies-to: security-updates
+        patterns:
+          - "*"   # a group needs a match rule; applies-to alone is rejected
     commit-message:
       prefix: "ci"
       include: "scope"
